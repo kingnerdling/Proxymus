@@ -9,6 +9,5 @@ namespace ProxymusCore.Backend.PersistentSocket
     {
         public string Name { get; set; }
         public IEnumerable<PersistentSocketBackendHostConfiguration> HostConfigurations { get; set; }
-
     }
 }

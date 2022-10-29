@@ -16,5 +16,6 @@ namespace ProxymusCore.Proxy
         public IEnumerable<IMessage> MessageQueue { get; }
         public void Start();
         public void Stop();
+        public Metrics Metrics { get; }
     }
 }

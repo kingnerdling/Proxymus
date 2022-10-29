@@ -81,6 +81,14 @@ namespace ProxymusCore.Frontend.SocketFrontend
             _socket.BeginReceive(_receiveBuffer, 0, _receiveBuffer.Length, SocketFlags.None, Socket_Receive, null);
         }
 
+        public void Send(byte[] data)
+        {
+            if (_socket.Connected)
+            {
+                _socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
+            }
+        }
+
         private void Disconnect()
         {
             try

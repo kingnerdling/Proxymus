@@ -11,9 +11,11 @@ namespace ProxymusCore.Backend.PersistentSocket
     public class PersistentSocketBackendHostConnection : IBackendConnection
     {
         public Guid Id => Guid.NewGuid();
-        public bool IsConnected;
-        public PersistentSocketBackendHostConfiguration Configuration { get; }
 
+        public PersistentSocketBackendHostConfiguration Configuration { get; }
+        public bool IsConnected => _connected;
+
+        private bool _connected;
         private Func<IMessage> _newMessageCallback { get; }
         private readonly byte[] _receiveBuffer;
         private readonly IMessageProcessor _messageProcessor;
@@ -29,7 +31,7 @@ namespace ProxymusCore.Backend.PersistentSocket
             this._newMessageCallback = newMessageCallback ?? throw new ArgumentNullException(nameof(newMessageCallback));
             this._processedMessageCallback = processedMessageCallback;
 
-            this._receiveBuffer = new byte[Configuration.ReceiveBufferSize];
+            this._receiveBuffer = new byte[Configuration.BufferSize];
         }
 
         public void Start()
@@ -51,11 +53,12 @@ namespace ProxymusCore.Backend.PersistentSocket
                 {
                     if (!_tcpClient.Connected)
                     {
-                        IsConnected = false;
+                        _connected = false;
                         Thread.Sleep(1000);
                         Connect();
                         return;
                     }
+                    _connected = true;
                     _tcpClient.GetStream().BeginRead(_receiveBuffer, 0, _receiveBuffer.Length, TcpClient_Read, null);
                     Task.Run(() => Process());
                 }
@@ -66,8 +69,6 @@ namespace ProxymusCore.Backend.PersistentSocket
         {
             if (_tcpClient != null)
             {
-
-
                 if (!_tcpClient.Connected)
                 {
                     Close();
@@ -75,13 +76,9 @@ namespace ProxymusCore.Backend.PersistentSocket
                 }
 
                 var intLen = _tcpClient.GetStream().EndRead(ar);
-                if (intLen == 0)
-                {
-                    Close();
-                }
+
 
                 var data = new byte[intLen];
-
                 Array.Copy(_receiveBuffer, data, intLen);
                 _messageProcessor.AddData(data);
 
@@ -101,7 +98,7 @@ namespace ProxymusCore.Backend.PersistentSocket
 
         private void Close()
         {
-            IsConnected = false;
+            _connected = false;
             if (_tcpClient != null)
             {
                 _tcpClient.Close();

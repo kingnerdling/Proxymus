@@ -8,5 +8,6 @@ namespace ProxymusCore.Backend
     public interface IBackendConnection
     {
         public Guid Id { get; }
+        public bool IsConnected { get; }
     }
 }

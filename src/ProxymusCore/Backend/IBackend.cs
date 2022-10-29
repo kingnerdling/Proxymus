@@ -10,5 +10,8 @@ namespace ProxymusCore.Backend
         public void Start();
         public void Stop();
         public void ProcessMessage(IMessage message);
+        public Action<IMessage> ProcessedMessageCallback { get; set; }
+        public bool IsConnected { get; }
+
     }
 }

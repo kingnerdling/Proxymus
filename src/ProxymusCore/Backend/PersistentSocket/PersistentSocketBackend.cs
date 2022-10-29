@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using ProxymusCore.Message;
-
+using ProxymusCore.Router;
 
 namespace ProxymusCore.Backend.PersistentSocket
 {
@@ -13,13 +13,17 @@ namespace ProxymusCore.Backend.PersistentSocket
         public string Name { get; }
         public PersistentSocketBackendConfiguration Configuration { get; }
         public IEnumerable<IBackendHost> Hosts => _hosts;
+        public Action<IMessage>? ProcessedMessageCallback { get; set; }
+        public IRouter Router { get; }
+        public bool IsConnected => _hosts.Any(x => x.IsConnected);
 
         private readonly IList<IBackendHost> _hosts;
 
-        public PersistentSocketBackend(PersistentSocketBackendConfiguration configuration)
+        public PersistentSocketBackend(PersistentSocketBackendConfiguration configuration, IRouter router)
         {
             this.Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-            this.Name = configuration.Name;
+            Router = router ?? throw new ArgumentNullException(nameof(router));
+            this.Name = configuration.Name == null ? "default" : configuration.Name;
             _hosts = new List<IBackendHost>();
             InitialiseHosts();
         }
@@ -42,16 +46,35 @@ namespace ProxymusCore.Backend.PersistentSocket
 
         public void ProcessMessage(IMessage message)
         {
-            var host = _hosts[new Random().Next(_hosts.Count - 1)];
-            host.ProcessMessage(message);
+            var host = Router.Route(_hosts.ToArray());
+            if (host != null)
+            {
+                host.ProcessMessage(message);
+            }
+            else
+            {
+                message.Errored = true;
+                if (ProcessedMessageCallback != null)
+                {
+                    ProcessedMessageCallback(message);
+                }
+            }
         }
 
         private void InitialiseHosts()
         {
             foreach (var hostConfiguration in Configuration.HostConfigurations)
             {
-                var host = new PersistentSocketBackendHost(hostConfiguration);
+                var host = new PersistentSocketBackendHost(hostConfiguration, Host_ProcessedMessageCallback);
                 _hosts.Add(host);
+            }
+        }
+
+        private void Host_ProcessedMessageCallback(IMessage message)
+        {
+            if (ProcessedMessageCallback != null)
+            {
+                ProcessedMessageCallback(message);
             }
         }
     }

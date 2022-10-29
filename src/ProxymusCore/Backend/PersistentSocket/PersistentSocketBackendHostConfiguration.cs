@@ -13,7 +13,7 @@ namespace ProxymusCore.Backend.PersistentSocket
         public int MaxClients { get; set; }
         public int MessageQueueLength { get; set; }
         public int IdleTimeout { get; set; }
-        public int ReceiveBufferSize { get; set; }
+        public int BufferSize { get; set; }
         public string MessageProcessor { get; set; }
     }
 }

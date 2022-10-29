@@ -9,17 +9,15 @@ namespace ProxymusCore.Message
     public class ClientMessage : IMessage
     {
         public Guid Id => new Guid();
-        public IClient Client => throw new NotImplementedException();
+        public IClient Client { get; }
         public byte[] RequestData { get; }
         public byte[]? ResponseData { get; set; }
-
         public bool Errored { get; set; }
 
         public ClientMessage(IClient client, byte[] data)
         {
-            ArgumentNullException.ThrowIfNull(client);
-            ArgumentNullException.ThrowIfNull(data);
-            this.RequestData = data;
+            this.Client = client ?? throw new ArgumentNullException(nameof(client));
+            this.RequestData = data ?? throw new ArgumentNullException(nameof(data));
         }
     }
 }

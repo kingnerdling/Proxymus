@@ -14,5 +14,7 @@ namespace ProxymusCore.Backend
         public void Start();
         public void Stop();
         public void ProcessMessage(IMessage message);
+        public bool IsConnected { get; }
+
     }
 }

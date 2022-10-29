@@ -13,18 +13,20 @@ namespace ProxymusCore.Backend.PersistentSocket
         public Guid Id => Guid.NewGuid();
         public string Name { get; }
         public PersistentSocketBackendHostConfiguration Configuration { get; }
+        public IEnumerable<IBackendConnection> Connections => _connections;
+        public bool IsConnected => _connections.Any(x => x.IsConnected);
 
-        public IEnumerable<IBackendConnection> Connections => Connections;
         private readonly IList<PersistentSocketBackendHostConnection> _connections;
+        private readonly BlockingCollection<IMessage> _messageQueue;
+        private readonly Action<IMessage> _processedMessageCallback;
 
-        private BlockingCollection<IMessage> _messageQueue;
-
-        public PersistentSocketBackendHost(PersistentSocketBackendHostConfiguration configuration)
+        public PersistentSocketBackendHost(PersistentSocketBackendHostConfiguration configuration, Action<IMessage> processedMessageCallback)
         {
             this.Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             this.Name = configuration.Name;
             _connections = new List<PersistentSocketBackendHostConnection>();
             _messageQueue = new BlockingCollection<IMessage>();
+            _processedMessageCallback = processedMessageCallback ?? throw new ArgumentNullException(nameof(processedMessageCallback));
             InitialiseConnections();
         }
 
@@ -67,6 +69,7 @@ namespace ProxymusCore.Backend.PersistentSocket
 
         private void HostConnection_ProcessedMessageCallback(IMessage message)
         {
+            _processedMessageCallback(message);
 
         }
 

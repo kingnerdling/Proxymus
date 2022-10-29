@@ -7,6 +7,7 @@ using ProxymusCore.Backend.PersistentSocket;
 using ProxymusCore.Frontend;
 using ProxymusCore.Frontend.SocketFrontend;
 using ProxymusCore.Proxy;
+using ProxymusCore.Router;
 
 namespace ProxymusService
 {
@@ -14,37 +15,50 @@ namespace ProxymusService
     {
         public static IProxy Build(IConfiguration configuration)
         {
-            var name = configuration.GetSection("Name").Value;
-            var messageQueueLength = int.Parse(configuration.GetSection("MessageQueueLength").Value);
-            var frontend = BuildFrontend(configuration.GetSection("Frontend"));
-            var backend = BuildBackend(configuration.GetSection("Backend"));
+            var name = configuration.GetRequiredSection("Name").Value;
+            var messageQueueLength = int.Parse(configuration.GetRequiredSection("MessageQueueLength").Value);
+            var frontend = BuildFrontend(configuration.GetRequiredSection("Frontend"));
+            var backend = BuildBackend(configuration.GetRequiredSection("Backend"));
 
             return new Proxy(name, frontend, backend, messageQueueLength);
         }
 
         private static IBackend BuildBackend(IConfigurationSection configuration)
         {
-            var type = configuration.GetSection("Type").Value;
-            var name = configuration.GetSection("Name").Value;
+            var type = configuration.GetRequiredSection("Type").Value;
+            var name = configuration.GetRequiredSection("Name").Value;
             switch (type.ToLower())
             {
-                case "persistentsocketbackend":
+                case "proxymuscore.messageprocessor.persistentsocketbackend":
                     var socketBackendConfiguration = configuration.Get<PersistentSocketBackendConfiguration>();
-                    var socketBackend = new PersistentSocketBackend(socketBackendConfiguration);
+                    var router = BuildRouter(configuration.GetRequiredSection("Router"));
+                    var socketBackend = new PersistentSocketBackend(socketBackendConfiguration, router);
                     return socketBackend;
                 default:
-                    throw new ArgumentOutOfRangeException($"Unknown backen type: {type}");
+                    throw new ArgumentOutOfRangeException($"Unknown backend type: {type}");
+            }
+        }
+
+        private static IRouter BuildRouter(IConfiguration configuration)
+        {
+            var type = configuration.GetRequiredSection("Type").Value;
+            switch (type.ToLower())
+            {
+                case "proxymuscore.router.roundrobinrouter":
+                    return new RoundRobinRouter();
+                default:
+                    throw new ArgumentOutOfRangeException($"Unknown router : {type}");
             }
         }
 
         private static IFrontend BuildFrontend(IConfiguration configuration)
         {
-            var type = configuration.GetSection("Type").Value;
+            var type = configuration.GetRequiredSection("Type").Value;
 
             switch (type.ToLower())
             {
-                case "socket":
-                    var socketFrontendConfiguration = configuration.GetSection("Configuration").Get<SocketFrontendConfiguration>();
+                case "proxymuscore.frontend.socketfrontend":
+                    var socketFrontendConfiguration = configuration.GetRequiredSection("Configuration").Get<SocketFrontendConfiguration>();
                     var socketFrontend = new SocketFrontend(socketFrontendConfiguration);
                     return socketFrontend;
                 default:
