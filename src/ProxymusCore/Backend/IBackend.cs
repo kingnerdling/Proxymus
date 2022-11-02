@@ -1,4 +1,5 @@
 using ProxymusCore.Message;
+using ProxymusCore.Metrics;
 
 namespace ProxymusCore.Backend
 {
@@ -12,6 +13,7 @@ namespace ProxymusCore.Backend
         public void ProcessMessage(IMessage message);
         public Action<IMessage> ProcessedMessageCallback { get; set; }
         public bool IsConnected { get; }
-
+        public MessageMetrics MessageMetrics { get; }
+        public bool IsMaxMessages { get; }
     }
 }

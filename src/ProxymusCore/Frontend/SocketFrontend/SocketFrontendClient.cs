@@ -12,10 +12,9 @@ namespace ProxymusCore.Frontend.SocketFrontend
 {
     public class SocketFrontendClient : IClient
     {
-        public Guid Id => Guid.NewGuid();
+        public Guid Id { get; }
         public string Name { get; }
-        public DateTime Created => DateTime.UtcNow;
-
+        public DateTime Created { get; }
 
         private readonly Socket _socket;
         private readonly int _bufferSize;
@@ -27,7 +26,8 @@ namespace ProxymusCore.Frontend.SocketFrontend
 
         public SocketFrontendClient(Socket socket, int bufferSize, IMessageProcessor messageProcessor, Action<IMessage> messageCallback, Action<SocketFrontendClient> disconnectCallback)
         {
-
+            this.Created = DateTime.UtcNow;
+            this.Id = Guid.NewGuid();
             this._socket = socket ?? throw new ArgumentNullException(nameof(socket));
             this._messageProcessor = messageProcessor ?? throw new ArgumentNullException(nameof(messageProcessor));
 

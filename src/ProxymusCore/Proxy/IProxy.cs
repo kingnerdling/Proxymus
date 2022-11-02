@@ -1,8 +1,7 @@
-using ProxymusCore.Router;
 using ProxymusCore.Backend;
 using ProxymusCore.Frontend;
-using System.Collections.Concurrent;
 using ProxymusCore.Message;
+using ProxymusCore.Metrics;
 
 namespace ProxymusCore.Proxy
 {
@@ -16,6 +15,6 @@ namespace ProxymusCore.Proxy
         public IEnumerable<IMessage> MessageQueue { get; }
         public void Start();
         public void Stop();
-        public Metrics Metrics { get; }
+        public MessageMetrics MessageMetrics { get; }
     }
 }

@@ -12,6 +12,7 @@ namespace ProxymusCore.MessageProcessor
     {
         public bool HasMessages { get { return _messageQueue.Count > 0; } }
 
+        private List<byte> _buffer = new List<byte>();
         private ConcurrentQueue<byte[]> _messageQueue;
 
         public HeaderLengthMessageProcessor()
@@ -20,7 +21,27 @@ namespace ProxymusCore.MessageProcessor
         }
         public void AddData(byte[] data)
         {
-            _messageQueue.Enqueue(data);
+            _buffer.AddRange(data);
+
+            while (true)
+            {
+                if (_buffer.Count < 2)
+                {
+                    return;
+                }
+
+                var msglen = BitConverter.ToInt16(_buffer.Take(2).ToArray(), 0);
+                msglen += 2;
+
+                if (_buffer.Count < msglen)
+                {
+                    return;
+                }
+
+                var message = _buffer.Take(msglen);
+                _messageQueue.Enqueue(data);
+                _buffer.RemoveRange(0, msglen);
+            }
         }
 
         public byte[] NextMessage()

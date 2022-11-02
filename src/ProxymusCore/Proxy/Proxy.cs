@@ -1,8 +1,8 @@
-using ProxymusCore.Router;
 using ProxymusCore.Backend;
 using ProxymusCore.Frontend;
 using System.Collections.Concurrent;
 using ProxymusCore.Message;
+using ProxymusCore.Metrics;
 
 namespace ProxymusCore.Proxy
 {
@@ -14,9 +14,9 @@ namespace ProxymusCore.Proxy
         public int MessageQueueLength { get; }
         public Guid Id => new Guid();
         public string Name { get; }
-        public Metrics Metrics => _metrics;
+        public MessageMetrics MessageMetrics => _messageMetrics;
 
-        private Metrics _metrics = new Metrics();
+        private MessageMetrics _messageMetrics = new MessageMetrics();
         private BlockingCollection<IMessage> _messageQueue;
         public Proxy(string name, IFrontend frontend, IBackend backend, int messageQueueLength)
         {
@@ -27,16 +27,6 @@ namespace ProxymusCore.Proxy
             _messageQueue = new BlockingCollection<IMessage>(messageQueueLength);
             backend.ProcessedMessageCallback = Backend_ProcessedMessageCallback;
             frontend.New_Message(Frontend_newMessage);
-        }
-
-        private void Backend_ProcessedMessageCallback(IMessage message)
-        {
-            Interlocked.Increment(ref _metrics.MessagesProcessed);
-            if (!message.Errored && message.ResponseData != null)
-            {
-                message.Client.Send(message.ResponseData);
-            }
-
         }
 
         public void Start()
@@ -51,11 +41,31 @@ namespace ProxymusCore.Proxy
             Frontend.Stop();
         }
 
-        private void Frontend_newMessage(IMessage msg)
+        private void Frontend_newMessage(IMessage message)
         {
-            Interlocked.Increment(ref _metrics.MessagesReceived);
-            _messageQueue.Add(msg);
-            Backend.ProcessMessage(msg);
+            _messageMetrics.NewMessage();
+            if (Backend.IsMaxMessages)
+            {
+                message.Errored = true;
+                Backend_ProcessedMessageCallback(message);
+                return;
+            }
+
+            Backend.ProcessMessage(message);
+        }
+
+        private void Backend_ProcessedMessageCallback(IMessage message)
+        {
+            _messageMetrics.ProcessedMessage();
+
+            if (!message.Errored && message.ResponseData != null)
+            {
+                message.Client.Send(message.ResponseData);
+            }
+            else
+            {
+                _messageMetrics.ErroredMessage();
+            }
         }
     }
 }

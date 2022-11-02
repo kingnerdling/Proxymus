@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using ProxymusCore.Message;
+using ProxymusCore.Metrics;
 
 namespace ProxymusCore.Backend
 {
@@ -15,6 +16,8 @@ namespace ProxymusCore.Backend
         public void Stop();
         public void ProcessMessage(IMessage message);
         public bool IsConnected { get; }
+        public bool IsMaxMessages { get; }
+        public MessageMetrics MessageMetrics { get; }
 
     }
 }
