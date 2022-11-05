@@ -8,19 +8,19 @@ namespace ProxymusCore.Backend.PersistentSocket
 {
     public class BackendHostConnectionSocket
     {
-        private PersistentSocketBackendHostConfiguration _config;
+        private PersistentSocketBackendHostConfiguration _configuration;
         private byte[] _buffer;
         private TcpClient _tcpClient;
-        public BackendHostConnectionSocket(PersistentSocketBackendHostConfiguration config)
+        public BackendHostConnectionSocket(PersistentSocketBackendHostConfiguration configuration)
         {
-            _config = config ?? throw new ArgumentNullException(nameof(config));
-            _buffer = new byte[config.BufferSize];
-            _tcpClient = new TcpClient();
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _buffer = new byte[_configuration.BufferSize];
         }
 
-        public async void Connect()
+        public void Connect()
         {
-            await _tcpClient.ConnectAsync(_config.IpAddress, _config.Port);
+            _tcpClient = new TcpClient();
+            _tcpClient.Connect(_configuration.IpAddress, _configuration.Port);
         }
 
         public void Disconnect()
@@ -39,6 +39,11 @@ namespace ProxymusCore.Backend.PersistentSocket
             var data = new byte[intLen];
             Array.Copy(_buffer, 0, data, 0, intLen);
             return data;
+        }
+
+        public bool IsConnected()
+        {
+            return _tcpClient.Client.Connected;
         }
     }
 }
