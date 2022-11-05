@@ -4,12 +4,22 @@ using Microsoft.AspNetCore.Http.Json;
 using ProxymusCore.Metrics;
 using ProxymusCore.Proxy;
 using ProxymusService;
+using Microsoft.Extensions.Logging;
 
 IProxy proxy = null; ;
 IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((hostContext, services) =>
     {
-        proxy = ProxyFactory.Build(hostContext.Configuration.GetSection("Proxy"));
+        var loggerFactory = LoggerFactory.Create(loggingBuilder =>
+        {
+            loggingBuilder
+            .AddConfiguration(hostContext.Configuration.GetRequiredSection("Logging"))
+            .AddConsole();
+        }
+        );
+
+        proxy = ProxyFactory.Build(hostContext.Configuration.GetSection("Proxy"), loggerFactory);
+
         services.AddSingleton<IProxy>(proxy);
         services.AddHostedService<Worker>();
     })
@@ -22,7 +32,6 @@ builder.Services.Configure<JsonOptions>(options =>
 });
 
 var app = builder.Build();
-
 app.MapGet("/metrics", () => Results.Ok(Metrics.Create(proxy)));
 host.RunAsync();
 app.Run();

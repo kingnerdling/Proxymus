@@ -63,6 +63,7 @@ namespace ProxymusCore.Frontend.SocketFrontend
             if (intLen == 0)
             {
                 Disconnect();
+                return;
             }
             var data = new byte[intLen];
 

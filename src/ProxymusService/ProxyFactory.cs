@@ -13,17 +13,27 @@ namespace ProxymusService
 {
     public static class ProxyFactory
     {
-        public static IProxy Build(IConfiguration configuration)
+        public static IProxy Build(IConfiguration configuration, ILoggerFactory loggerFactory)
         {
+            if (configuration is null)
+            {
+                throw new ArgumentNullException(nameof(configuration));
+            }
+
+            if (loggerFactory is null)
+            {
+                throw new ArgumentNullException(nameof(loggerFactory));
+            }
+
             var name = configuration.GetRequiredSection("Name").Value;
             var messageQueueLength = int.Parse(configuration.GetRequiredSection("MessageQueueLength").Value);
             var frontend = BuildFrontend(configuration.GetRequiredSection("Frontend"));
-            var backend = BuildBackend(configuration.GetRequiredSection("Backend"));
+            var backend = BuildBackend(configuration.GetRequiredSection("Backend"), loggerFactory);
 
             return new Proxy(name, frontend, backend, messageQueueLength);
         }
 
-        private static IBackend BuildBackend(IConfigurationSection configuration)
+        private static IBackend BuildBackend(IConfigurationSection configuration, ILoggerFactory loggerFactory)
         {
             var type = configuration.GetRequiredSection("Type").Value;
             var name = configuration.GetRequiredSection("Name").Value;
@@ -32,7 +42,7 @@ namespace ProxymusService
                 case "proxymuscore.messageprocessor.persistentsocketbackend":
                     var socketBackendConfiguration = configuration.Get<PersistentSocketBackendConfiguration>();
                     var router = BuildRouter(configuration.GetRequiredSection("Router"));
-                    var socketBackend = new PersistentSocketBackend(socketBackendConfiguration, router);
+                    var socketBackend = new PersistentSocketBackend(loggerFactory, socketBackendConfiguration, router);
                     return socketBackend;
                 default:
                     throw new ArgumentOutOfRangeException($"Unknown backend type: {type}");

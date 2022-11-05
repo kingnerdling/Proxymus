@@ -14,5 +14,6 @@ namespace ProxymusCore.Metrics
         public MessageMetrics MessageMetrics { get; set; }
         public IEnumerable<IClient> Clients { get; set; }
         public bool IsListening { get; set; }
+        public int ClientCount { get; set; }
     }
 }

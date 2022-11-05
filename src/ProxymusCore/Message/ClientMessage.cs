@@ -13,11 +13,14 @@ namespace ProxymusCore.Message
         public byte[] RequestData { get; }
         public byte[]? ResponseData { get; set; }
         public bool Errored { get; set; }
+        public DateTime RequestDateTime { get; }
+        public DateTime ResponseDateTime { get; set; }
 
         public ClientMessage(IClient client, byte[] data)
         {
             this.Client = client ?? throw new ArgumentNullException(nameof(client));
             this.RequestData = data ?? throw new ArgumentNullException(nameof(data));
+            RequestDateTime = DateTime.UtcNow;
         }
     }
 }

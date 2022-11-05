@@ -12,9 +12,10 @@ namespace ProxymusCore.Backend.PersistentSocket
         public int Port { get; set; }
         public int ClientCount { get; set; }
         public int MaxMessageCount { get; set; }
-        public int IdleTimeout { get; set; }
+        public int IdleTimeoutMs { get; set; }
         public int BufferSize { get; set; }
         public string MessageProcessor { get; set; }
-        public int ReconnectInterval { get; set; }
+        public int ReconnectIntervalMs { get; set; }
+        public int ReceiveTimeoutMs { get; set; }
     }
 }

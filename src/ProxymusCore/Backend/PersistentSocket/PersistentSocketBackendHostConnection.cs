@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using ProxymusCore.Message;
 using ProxymusCore.MessageProcessor;
 using ProxymusCore.Metrics;
+
 
 namespace ProxymusCore.Backend.PersistentSocket
 {
@@ -29,15 +31,21 @@ namespace ProxymusCore.Backend.PersistentSocket
         private TcpClient? _tcpClient;
         private IMessage? _currentMessage;
         private bool _isDisconnecting;
-
-        public PersistentSocketBackendHostConnection(PersistentSocketBackendHostConfiguration configuration, IMessageProcessor messageProcessor, Func<IMessage> newMessageCallback, Action<IMessage> processedMessageCallback)
+        private ILogger<PersistentSocketBackendHostConnection> _logger;
+        private AutoResetEvent _resetEvent;
+        private object _lock;
+        public PersistentSocketBackendHostConnection(ILogger<PersistentSocketBackendHostConnection> logger, PersistentSocketBackendHostConfiguration configuration, IMessageProcessor messageProcessor, Func<IMessage> newMessageCallback, Action<IMessage> processedMessageCallback)
         {
+            this._logger = logger ?? throw new ArgumentNullException(nameof(logger));
             this.Id = Guid.NewGuid();
             this.Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             this._messageProcessor = messageProcessor ?? throw new ArgumentNullException(nameof(messageProcessor));
             this._newMessageCallback = newMessageCallback ?? throw new ArgumentNullException(nameof(newMessageCallback));
             this._processedMessageCallback = processedMessageCallback;
             this._receiveBuffer = new byte[Configuration.BufferSize];
+            this._resetEvent = new AutoResetEvent(false);
+            this._lock = new object();
+            _tcpClient = new TcpClient();
         }
 
         public void Start()
@@ -47,8 +55,15 @@ namespace ProxymusCore.Backend.PersistentSocket
 
         public void Connect()
         {
-            _tcpClient = new TcpClient();
-            _tcpClient.BeginConnect(Configuration.IpAddress, Configuration.Port, TcpClient_Connect, null);
+            lock (_lock)
+            {
+                Close();
+                if (!_isDisconnecting)
+                {
+                    _tcpClient = new TcpClient();
+                    _tcpClient.BeginConnect(Configuration.IpAddress, Configuration.Port, TcpClient_Connect, null);
+                }
+            }
         }
 
         private void TcpClient_Connect(IAsyncResult ar)
@@ -60,7 +75,7 @@ namespace ProxymusCore.Backend.PersistentSocket
                     if (!_tcpClient.Connected)
                     {
                         _connected = false;
-                        Thread.Sleep(Configuration.ReconnectInterval);
+                        Thread.Sleep(Configuration.ReconnectIntervalMs);
                         Connect();
                         return;
                     }
@@ -68,6 +83,7 @@ namespace ProxymusCore.Backend.PersistentSocket
                     _lastConnectionDate = DateTime.UtcNow;
                     _connected = true;
                     _tcpClient.GetStream().BeginRead(_receiveBuffer, 0, _receiveBuffer.Length, TcpClient_Read, null);
+                    _logger.LogInformation($"{Id}: Connected");
                     Task.Run(() => Process());
                 }
             }
@@ -79,51 +95,60 @@ namespace ProxymusCore.Backend.PersistentSocket
             {
                 if (_tcpClient != null)
                 {
-                    if (!_tcpClient.Connected)
-                    {
-                        Close();
-                        return;
-                    }
 
                     var intLen = _tcpClient.GetStream().EndRead(ar);
+                    if (intLen <= 0)
+                    {
+                        Connect();
+                        return;
+                    }
                     var data = new byte[intLen];
                     Array.Copy(_receiveBuffer, data, intLen);
                     _messageProcessor.AddData(data);
                     _clientMetrics.DataReceived(intLen);
+                    _logger.LogTrace($"{Id}: rx: {Convert.ToHexString(data)}");
+
                     while (_messageProcessor.HasMessages)
                     {
                         var msgByte = _messageProcessor.NextMessage();
                         if (msgByte != null && _currentMessage != null)
                         {
                             _currentMessage.ResponseData = msgByte;
-                            _messageMetrics.ProcessedMessage();
+                            _currentMessage.ResponseDateTime = DateTime.UtcNow;
+                            _messageMetrics.ProcessedMessage(_currentMessage);
                             _processedMessageCallback(_currentMessage);
                         }
                     }
-                    _tcpClient.GetStream().BeginRead(_receiveBuffer, 0, _receiveBuffer.Length, TcpClient_Read, null);
+                    _tcpClient.GetStream().BeginRead(_receiveBuffer, 0, _receiveBuffer.Length, TcpClient_Read, _currentMessage.Id);
+                    _resetEvent.Set();
+                }
+                else
+                {
+                    Connect();
                 }
             }
             catch (System.Exception)
             {
-                Close();
-                return;
+                Connect();
             }
         }
 
         private void Close()
         {
-            _connected = false;
-            if (_tcpClient != null)
+            try
             {
-                _tcpClient.Close();
-                _tcpClient.Dispose();
-                _tcpClient = null;
+                _connected = false;
+                if (_tcpClient != null)
+                {
+                    _tcpClient.Dispose();
+                    _tcpClient = null;
+                }
+            }
+            catch (System.Exception)
+            {
             }
 
-            if (!_isDisconnecting)
-            {
-                Connect();
-            }
+            _logger.LogInformation($"{Id}: Disconnected");
         }
 
         public void Disconnect()
@@ -145,8 +170,19 @@ namespace ProxymusCore.Backend.PersistentSocket
                     Connect();
                     return;
                 }
+
+                _tcpClient.GetStream().Write(_currentMessage.RequestData, 0, _currentMessage.RequestData.Length);
+
                 _clientMetrics.DataSent(_currentMessage.RequestData.Length);
-                _tcpClient.GetStream().WriteAsync(_currentMessage.RequestData, 0, _currentMessage.RequestData.Length);
+                _logger.LogTrace($"{Id}: tx: {Convert.ToHexString(_currentMessage.RequestData)}");
+                if (!_resetEvent.WaitOne(Configuration.ReceiveTimeoutMs))
+                {
+                    _currentMessage.Errored = true;
+                    _processedMessageCallback(_currentMessage);
+                    Close();
+                    return;
+                }
+
             }
         }
     }

@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using ProxymusCore.Message;
 using ProxymusCore.MessageProcessor;
 using ProxymusCore.Metrics;
@@ -22,11 +23,16 @@ namespace ProxymusCore.Backend.PersistentSocket
 
         private readonly IList<PersistentSocketBackendHostConnection> _connections;
         private readonly BlockingCollection<IMessage> _messageQueue;
+        private readonly ILogger<PersistentSocketBackendHost> _logger;
+        private readonly ILoggerFactory _loggerFactory;
         private readonly Action<IMessage> _processedMessageCallback;
 
-        public PersistentSocketBackendHost(PersistentSocketBackendHostConfiguration configuration, Action<IMessage> processedMessageCallback)
+        public PersistentSocketBackendHost(ILoggerFactory loggerFactory, PersistentSocketBackendHostConfiguration configuration, Action<IMessage> processedMessageCallback)
         {
             this.Id = Guid.NewGuid();
+
+            this._loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
+            this._logger = loggerFactory.CreateLogger<PersistentSocketBackendHost>();
             this.Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             this.Name = configuration.Name;
             _connections = new List<PersistentSocketBackendHostConnection>();
@@ -62,7 +68,7 @@ namespace ProxymusCore.Backend.PersistentSocket
             for (int i = 0; i < Configuration.ClientCount; i++)
             {
                 var messageProcessor = (IMessageProcessor)Activator.CreateInstance(Type.GetType(Configuration.MessageProcessor));
-                var connection = new PersistentSocketBackendHostConnection(
+                var connection = new PersistentSocketBackendHostConnection(_loggerFactory.CreateLogger<PersistentSocketBackendHostConnection>(),
                     Configuration,
                     messageProcessor,
                     HostConnection_NewMessageCallback,
@@ -75,7 +81,7 @@ namespace ProxymusCore.Backend.PersistentSocket
 
         private void HostConnection_ProcessedMessageCallback(IMessage message)
         {
-            _messageMetrics.ProcessedMessage();
+            _messageMetrics.ProcessedMessage(message);
             _processedMessageCallback(message);
         }
 

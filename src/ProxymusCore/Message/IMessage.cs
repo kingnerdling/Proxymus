@@ -13,5 +13,7 @@ namespace ProxymusCore.Message
         public byte[] RequestData { get; }
         public byte[]? ResponseData { get; set; }
         public bool Errored { get; set; }
+        public DateTime RequestDateTime { get; }
+        public DateTime ResponseDateTime { get; set; }
     }
 }

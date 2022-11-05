@@ -11,7 +11,5 @@ namespace ProxymusCore.Metrics
         public string Name { get; set; }
         public MessageMetrics MessageMetrics { get; set; }
         public IEnumerable<BackendHostConnectionMetrics> BackendHostConnectionMetrics { get; set; }
-
-
     }
 }

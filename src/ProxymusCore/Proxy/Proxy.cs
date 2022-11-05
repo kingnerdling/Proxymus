@@ -48,6 +48,7 @@ namespace ProxymusCore.Proxy
             {
                 message.Errored = true;
                 Backend_ProcessedMessageCallback(message);
+                message.Client.Dispose();
                 return;
             }
 
@@ -56,15 +57,12 @@ namespace ProxymusCore.Proxy
 
         private void Backend_ProcessedMessageCallback(IMessage message)
         {
-            _messageMetrics.ProcessedMessage();
+            message.ResponseDateTime = DateTime.UtcNow;
+            _messageMetrics.ProcessedMessage(message);
 
-            if (!message.Errored && message.ResponseData != null)
+            if (message.ResponseData != null)
             {
                 message.Client.Send(message.ResponseData);
-            }
-            else
-            {
-                _messageMetrics.ErroredMessage();
             }
         }
     }
